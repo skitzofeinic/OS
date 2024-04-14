@@ -84,19 +84,19 @@ void run_command(node_t *node) {
     }
     
     if (node->type == NODE_PIPE) {
-        int num_commands = node->pipe.n_parts;
-        int pipefd[num_commands - 1][2];
-        pid_t pids[num_commands];
+        int num_parts = node->pipe.n_parts;
+        int pipefd[num_parts - 1][2];
+        pid_t pids[num_parts];
         int status;
 
-        for (int i = 0; i < num_commands - 1; i++) {
+        for (int i = 0; i < num_parts - 1; i++) {
             if (pipe(pipefd[i]) == -1) {
                 perror("pipe");
                 exit(EXIT_FAILURE);
             }
         }
 
-        for (int i = 0; i < num_commands; i++) {
+        for (int i = 0; i < num_parts; i++) {
             pids[i] = fork();
             if (pids[i] == -1) {
                 perror("fork");
@@ -107,11 +107,11 @@ void run_command(node_t *node) {
                     dup2(pipefd[i - 1][0], STDIN_FILENO); // Redirect stdin from previous pipe
                     close(pipefd[i - 1][0]); // Close read end of previous pipe
                 }
-                if (i != num_commands - 1) {
+                if (i != num_parts - 1) {
                     dup2(pipefd[i][1], STDOUT_FILENO); // Redirect stdout to next pipe
                     close(pipefd[i][1]); // Close write end of current pipe
                 }
-                for (int j = 0; j < num_commands - 1; j++) {
+                for (int j = 0; j < num_parts - 1; j++) {
                     close(pipefd[j][0]); // Close read ends of all other pipes
                     close(pipefd[j][1]); // Close write ends of all other pipes
                 }
@@ -121,13 +121,13 @@ void run_command(node_t *node) {
         }
 
         // Parent process
-        for (int i = 0; i < num_commands - 1; i++) {
+        for (int i = 0; i < num_parts - 1; i++) {
             close(pipefd[i][0]); // Close read ends of all pipes
             close(pipefd[i][1]); // Close write ends of all pipes
         }
 
         // Wait for all child processes to complete
-        for (int i = 0; i < num_commands; i++) {
+        for (int i = 0; i < num_parts; i++) {
             waitpid(pids[i], &status, 0);
         }
     }
