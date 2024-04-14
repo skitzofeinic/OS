@@ -81,11 +81,11 @@ void execute_piped_commands(node_t *first_command, node_t *second_command) {
         perror("fork");
         exit(EXIT_FAILURE);
     } else if (pid1 == 0) {
-        close(pipefd[0]);
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[1]);
-
-        run_command(first_command);
+        // Child process for the first command
+        close(pipefd[0]); // Close unused read end of the pipe
+        dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to the write end of the pipe
+        close(pipefd[1]); // Close write end after redirection
+        run_command(first_command); // Execute the first command
         exit(EXIT_SUCCESS);
     }
 
@@ -94,21 +94,23 @@ void execute_piped_commands(node_t *first_command, node_t *second_command) {
         perror("fork");
         exit(EXIT_FAILURE);
     } else if (pid2 == 0) {
-        close(pipefd[1]);
-
-        dup2(pipefd[0], STDIN_FILENO);
-        close(pipefd[0]);
-
-        run_command(second_command);
+        // Child process for the second command
+        close(pipefd[1]); // Close unused write end of the pipe
+        dup2(pipefd[0], STDIN_FILENO); // Redirect stdin to the read end of the pipe
+        close(pipefd[0]); // Close read end after redirection
+        run_command(second_command); // Execute the second command
         exit(EXIT_SUCCESS);
     }
 
-    close(pipefd[0]);
-    close(pipefd[1]);
+    // Parent process
+    close(pipefd[0]); // Close unused read end of the pipe
+    close(pipefd[1]); // Close unused write end of the pipe
 
+    // Wait for both child processes to complete
     waitpid(pid1, &status, 0);
     waitpid(pid2, &status, 0);
 }
+
 
 void run_command(node_t *node) {
     arena_push();
